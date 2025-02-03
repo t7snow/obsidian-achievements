@@ -34,8 +34,8 @@ export interface FileStat {
   characters: CountDiff;
   sentences: CountDiff;
   pages: CountDiff;
-  images: CountDiff;
-  bulletPoints: CountDiff;
+  // images: CountDiff;
+  // bulletPoints: CountDiff;
   timeSpent: CountDiff;
 
 }
