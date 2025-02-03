@@ -1,6 +1,7 @@
 export class TimeTracker {
   private fileStartTimes: Record<string, number> = {};
   private fileTotalTimes: Record<string, number> = {};
+  private fileDailyTimes: Record<string, number> = {};
   private dailyTotalTime: number = 0;
 
   
@@ -12,6 +13,7 @@ export class TimeTracker {
       if (this.fileStartTimes[filePath]) {
           const duration = Date.now() - this.fileStartTimes[filePath];
           this.dailyTotalTime += duration;
+          this.fileDailyTimes[filePath] = duration;
           this.fileTotalTimes[filePath] += duration;
           delete this.fileStartTimes[filePath];
           
@@ -30,7 +32,11 @@ export class TimeTracker {
       return this.dailyTotalTime;
   }
 
-  // Reset daily time at midnight or when needed
+  public getFileDailyTime(filePath: string) {
+    if(this.fileDailyTimes[filePath]) {
+      return this.fileDailyTimes[filePath];
+    }
+  }
   public resetDailyTime() {
       this.dailyTotalTime = 0;
       this.fileStartTimes = {};

@@ -16,23 +16,20 @@ export interface Day {
   sentences: number;
   pages: number;
   files: number;
-  footnotes: number;
-  citations: number;
+  xp: number;
+  timeSpent: number;
   totalWords: number;
   totalCharacters: number;
   totalSentences: number;
-  totalFootnotes: number;
-  totalCitations: number;
   totalPages: number;
   totalImages: number;
   totalBulletPoints: number;
-  timeSpent: number;
+  totalTimeSpent: number;
+  totalXP: number;
 
 }
 
 export interface FileStat {
-  footnotes: CountDiff;
-  citations: CountDiff;
   words: CountDiff;
   characters: CountDiff;
   sentences: CountDiff;
@@ -40,7 +37,7 @@ export interface FileStat {
   images: CountDiff;
   bulletPoints: CountDiff;
   timeSpent: CountDiff;
-  
+
 }
 
 export interface CountDiff {
