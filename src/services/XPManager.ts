@@ -8,8 +8,8 @@ export class XPManager {
   private initialXP: number;
   private today: string;
 
-  public handleFileCreation(fileName: string) {
-
+  public handleFileCreation(currentXP: number) {
+    
   }
 
   public handleWord(fileName: string) {

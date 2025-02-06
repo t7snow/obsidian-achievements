@@ -3,6 +3,7 @@ import { VaultStatistics, Day, FileStat } from '../types/Stats';
 import { debounce, Debouncer, Vault, Workspace } from "obsidian";
 import { getCharacterCount, getPageCount, getSentenceCount, getWordCount } from './StatsUtils';
 import { TimeTracker } from './TimerService';
+import { XPManager } from './XPManager';
 export default class StatsManager { 
   private plugin: Plugin;
   private app: App;
@@ -15,6 +16,7 @@ export default class StatsManager {
   private workspace: Workspace;
   public debounceChange;
   public timeTracker: TimeTracker;
+  public xpManager: XPManager;
 
   constructor(plugin: Plugin, app: App, vault: Vault, workspace: Workspace){
     this.plugin = plugin;
@@ -82,7 +84,7 @@ export default class StatsManager {
     const totalSentences = await this.calcTotalSentences();
     const totalPages = await this.calcTotalPages();
     const totalTimeSpent = await this.timeTracker.getDailyTotalTime();
-    const totalXP = await this.xpManager.getTotalDayXP();
+    const totalXP = await this.xpManager.getTotalXP();
 
     const newDay: Day = {
       words: 0,
@@ -207,7 +209,7 @@ export default class StatsManager {
         this.vaultStats.history[this.today].words = words;
         this.vaultStats.history[this.today].characters = characters;
         this.vaultStats.history[this.today].sentences = sentences;
-
+        this.vaultStats.history[this.today].xp = this.xpManager.getDailyXP();
         this.vaultStats.history[this.today].pages = pages;
         this.vaultStats.history[this.today].files = this.getTotalFiles();
         this.vaultStats.history[this.today].files = timeSpent;
@@ -229,7 +231,8 @@ export default class StatsManager {
       todayHist.totalCharacters = await this.calcTotalCharacters();
       todayHist.totalSentences = await this.calcTotalSentences();
       todayHist.totalPages = await this.calcTotalPages();
-      todayHist.totalTimeSpent = await this.timeTracker.getDailyTotalTime();
+      todayHist.totalTimeSpent = await this.timeTracker.getDailyTotalTime(); // TODO: these need to get fgrom the cache not from the classes! iditot
+      todayHist.totalXP = await this.xpManager.getDailyXP();
       this.update();
     } else {
       this.updateToday();
