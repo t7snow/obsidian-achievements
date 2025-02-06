@@ -1,44 +1,56 @@
+import * as localforage from "localforage";
 export class TimeTracker {
-  private fileStartTimes: Record<string, number> = {};
-  private fileTotalTimes: Record<string, number> = {};
-  private fileDailyTimes: Record<string, number> = {};
-  private dailyTotalTime: number = 0;
+  private timers: { [fileName: string]: { startTime: number, totalTime: number } } = {};
 
-  public startFileTracking(filePath: string) {
-    this.fileStartTimes[filePath] = Date.now();
+  constructor() {
+    this.loadTimers();
+  }
+  public startTimer(fileName: string): void {
+    if (!this.timers[fileName]) {
+      this.timers[fileName] = { startTime: Date.now(), totalTime: 0 };
+    } else {
+      this.timers[fileName].startTime = Date.now();
+    }
   }
 
-  public stopFileTracking(filePath: string) {
-    if (this.fileStartTimes[filePath]) {
-      const duration = Date.now() - this.fileStartTimes[filePath];
-      this.dailyTotalTime += duration;
-      this.fileDailyTimes[filePath] = duration;
-      this.fileTotalTimes[filePath] = (this.fileTotalTimes[filePath] || 0) + duration;
-      delete this.fileStartTimes[filePath];
-      return duration;
+  public async stopTimer(fileName: string): Promise<void> {
+    if (this.timers[fileName]) {
+      const endTime = Date.now();
+      this.timers[fileName].totalTime += endTime - this.timers[fileName].startTime;
+    }
+    await this.saveTimers();
+  }
+
+  public getTimeSpent(fileName: string): number {
+    if (this.timers[fileName]) {
+      return this.timers[fileName].totalTime;
     }
     return 0;
   }
 
-  public deleteFileTracking(filePath: string) {
-    if(this.fileTotalTimes[filePath]) {
-      this.dailyTotalTime -= this.fileTotalTimes[filePath];
-      delete this.fileTotalTimes[filePath];
+  public getDailyTotalTime(): number {
+    return Object.values(this.timers).reduce((total, timer) => total + timer.totalTime, 0);
+  }
+
+
+ public async deleteFileTimer(fileName: string) {
+    if(this.timers[fileName]) {
+      delete this.timers[fileName];
+      await this.saveTimers();
     }
   }
 
-  public getDailyTotalTime(): number {
-    return this.dailyTotalTime;
+  private async saveTimers(): Promise<void> {
+    const savedTimers = await localforage.setItem('timers', this.timers);
   }
 
-  public getFileDailyTime(filePath: string): number {
-    return this.fileDailyTimes[filePath] || 0;
+  private async loadTimers(): Promise<void> {
+    const savedTimers = await localforage.getItem<{ [fileName: string]: {startTime: number, totalTime: number}}>('timers');
+    if(savedTimers){
+      this.timers = savedTimers;
+    }
   }
 
-  public resetDailyTime() {
-    this.dailyTotalTime = 0;
-    this.fileStartTimes = {};
-    this.fileTotalTimes = {};
-    this.fileDailyTimes = {}; // Also reset daily times
-  }
+
+ 
 }

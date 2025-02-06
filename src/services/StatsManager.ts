@@ -23,6 +23,8 @@ export default class StatsManager {
     this.app = app;
     this.vault = vault;
     this.workspace = workspace;
+    this.timeTracker = new TimeTracker();
+    this.xpManager = new XPManager();
     this.debounceChange = debounce(
       (text: string) => this.change(text),
       50,
@@ -66,6 +68,16 @@ export default class StatsManager {
 
       await this.updateToday();
     });
+  }
+
+  public async startTimer(fileName: string): Promise<void> {
+    await this.timeTracker.startTimer(fileName);
+  }
+  public async stopTimer(fileName: string): Promise<void> {
+    await this.timeTracker.stopTimer(fileName);
+  }
+  public async deleteTimer(fileName: string): Promise<void> {
+    await this.timeTracker.deleteFileTimer(fileName);
   }
 
   
@@ -116,12 +128,13 @@ export default class StatsManager {
 
   public async change(text: string) {
 
-    const fileName = this.workspace.getActiveFile()?.path;
+    const fileName = this.workspace.getActiveFile()?.path ?? "unsaved-file";
     const currentWords = getWordCount(text);
     const currentCharacters = getCharacterCount(text);
     const currentSentences = getSentenceCount(text);
     const currentPages = getPageCount(text, this.plugin.settings.pageWords);
-    const currentTimeSpent = this.timeTracker.getFileDailyTime(text);
+    const currentTimeSpent = this.timeTracker.getTimeSpent(fileName);
+    
 
     
     let modFiles = this.vaultStats.modifiedFiles;
@@ -130,8 +143,11 @@ export default class StatsManager {
       && this.today === moment().format("YYYY-MM-DD")){
 
       if(fileName && modFiles.hasOwnProperty(fileName)){
-        this.vaultStats.history[this.today].totalWords += 
-        currentWords - modFiles[fileName].words.current;
+
+        const wordDiff = currentWords - modFiles[fileName].words.current;
+        if(wordDiff > 0){
+          await this.xpManager.handleWord(fileName, wordDiff);
+        }
         
         this.vaultStats.history[this.today].totalWords +=
         currentWords - modFiles[fileName].words.current;
@@ -145,14 +161,22 @@ export default class StatsManager {
         this.vaultStats.history[this.today].totalPages +=
           currentPages - modFiles[fileName].pages.current;
 
+        this.vaultStats.history[this.today].totalTimeSpent +=
+          currentTimeSpent - modFiles[fileName].timeSpent.current;
+
         
           modFiles[fileName].words.current = currentWords;
           modFiles[fileName].characters.current = currentCharacters;
           modFiles[fileName].sentences.current = currentSentences;
           modFiles[fileName].pages.current = currentPages;
+          modFiles[fileName].timeSpent.current = currentTimeSpent;
 
       } else {
         if(fileName){
+          if(currentWords > 0){
+            await this.xpManager.handleFileCreation(fileName);
+            await this.xpManager.handleWord(fileName, currentWords);
+          }
           modFiles[fileName] = {
             words: {
               initial: currentWords,
@@ -202,17 +226,18 @@ export default class StatsManager {
         )
         .reduce((a, b) => a + b, 0);
 
-      const timeSpent = Object.values(modFiles).map((counts) => 
-        Math.max(0, counts.timeSpent.current - counts.pages.initial))
-        .reduce((a,b) => a+b,0);
+        const timeSpent = Object.values(modFiles).map((counts) => 
+          Math.max(0, counts.timeSpent.current - counts.timeSpent.initial))
+          .reduce((a,b) => a+b,0);
 
         this.vaultStats.history[this.today].words = words;
         this.vaultStats.history[this.today].characters = characters;
         this.vaultStats.history[this.today].sentences = sentences;
-        this.vaultStats.history[this.today].xp = this.xpManager.getDailyXP();
+        // this.vaultStats.history[this.today].xp = this.xpManager.getDailyXP();
         this.vaultStats.history[this.today].pages = pages;
         this.vaultStats.history[this.today].files = this.getTotalFiles();
-        this.vaultStats.history[this.today].files = timeSpent;
+        this.vaultStats.history[this.today].timeSpent = timeSpent;
+        this.vaultStats.history[this.today].xp = await this.xpManager.getDailyXP();
 
         await this.update();
       } else {
@@ -226,13 +251,23 @@ export default class StatsManager {
       this.vaultStats.history.hasOwnProperty(this.today) &&
       this.today === moment().format("YYYY-MM-DD")
     ) {
+
+      
       const todayHist: Day = this.vaultStats.history[this.today];
+      const oldHistWords = todayHist.totalWords;
+      
+      
       todayHist.totalWords = await this.calcTotalWords();
+      const wordDiff = todayHist.totalWords - oldHistWords;
+      if(wordDiff > 0){
+        await this.xpManager.handleWord("", wordDiff);
+      }
       todayHist.totalCharacters = await this.calcTotalCharacters();
       todayHist.totalSentences = await this.calcTotalSentences();
       todayHist.totalPages = await this.calcTotalPages();
-      todayHist.totalTimeSpent = await this.timeTracker.getDailyTotalTime(); // TODO: these need to get fgrom the cache not from the classes! iditot
-      todayHist.totalXP = await this.xpManager.getDailyXP();
+      todayHist.totalTimeSpent = await this.timeTracker.getDailyTotalTime();
+      todayHist.totalXP = await this.xpManager.getTotalXP();
+      todayHist.xp = await this.xpManager.getDailyXP();
       this.update();
     } else {
       this.updateToday();
@@ -289,6 +324,8 @@ export default class StatsManager {
 
     return pages;
   }
+
+  
 
   public getDailyWords(): number {
     return this.vaultStats.history[this.today].words;

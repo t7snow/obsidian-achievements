@@ -1,54 +1,104 @@
 // should have the fuctions for the actual addition of xp
 // so
+import * as localforage from "localforage";
 import { moment } from "obsidian";
+
+interface XPState {
+  daily: Record<string, number>;
+  total: number;
+  lastDaily: string;
+  fileXP: Record<string, number>;
+}
+
 export class XPManager {
+
+  private xpState: XPState = {
+    daily: {},
+    total: 0,
+    lastDaily: '',
+    fileXP: {}
+  };
+
+  private readonly XP_REWARDS = {
+    NEW_FILE: 50,
+    WORD_WRITTEN: 1,
+    TAG_ADDED: 5,
+    EMBED_ADDED: 10,
+    DAILY_GOAL_MET: 100,
+    WORD_MILESTONE: 200,
+    DAILY_NOTE: 25,
+    SHARE_CONTENT: 15
+  };
+
+  constructor() {
+    this.loadXP();
+    this.checkDayReset();
+  }
   
-  private dailyXP: Record<string, number>;
-  private totalXP: number; 
-  private initialXP: number;
-  private today: string;
-
-  public handleFileCreation(currentXP: number) {
-    
+  private async saveXP() : Promise<void> {
+    const xp = await localforage.setItem('xp-state', this.xpState);
   }
 
-  public handleWord(fileName: string) {
-
+  private async loadXP() : Promise<void> {
+    const savedState = await localforage.getItem<XPState>('xp-state');
+    if(savedState) {
+      this.xpState = savedState;
+    }
   }
 
-  public handleTag(fileName: string) {
-
+  private async checkDayReset(): Promise<void> {
+    const today = moment().format('YYYY-MM-DD');
+    if (this.xpState.lastDaily !== today) {
+      this.xpState.daily = {};
+      this.xpState.lastDaily = today;
+      await this.saveXP();
+    }
+  }
+  
+  private async addXP(amount: number, fileName?: string): Promise<void> {
+    this.xpState.total += amount;
+    const today = moment().format('YYYY-MM-DD');
+    this.xpState.daily[today] = (this.xpState.daily[today] || 0) + amount;
+    if (fileName) {
+      this.xpState.fileXP[fileName] = (this.xpState.fileXP[fileName] || 0) + amount;
+    }
+    await this.saveXP();
   }
 
-  public handleEmbedded(fileName: string) {
-
+  public async handleFileCreation(fileName: string): Promise<void> {
+    await this.addXP(this.XP_REWARDS.NEW_FILE, fileName);
   }
 
-  public handleDailyGoal() {
+  public async handleWord(fileName: string, wordCount: number = 1): Promise<void> {
+    await this.addXP(this.XP_REWARDS.WORD_WRITTEN * wordCount, fileName);
+  } 
 
+  public async handleTag(fileName: string): Promise<void> {
+    await this.addXP(this.XP_REWARDS.TAG_ADDED, fileName);
   }
 
-  public handleWordCount() {
-
+  public async handleEmbedded(fileName: string): Promise<void> {
+    await this.addXP(this.XP_REWARDS.EMBED_ADDED, fileName);
   }
 
-  public handleDailyNote(){
 
+  public async handleDailyGoal(): Promise<void> {
+    const today = moment().format('YYYY-MM-DD');
+    const achievementKey = `daily_goal_${today}`;
+    await this.addXP(this.XP_REWARDS.DAILY_GOAL_MET);
   }
 
-  public handleShare() {
-
+  public async getDailyXP(): Promise<number> {
+    const today = moment().format('YYYY-MM-DD');
+    return this.xpState.daily[today];
   }
 
-  public getDailyXP(): number {
-    this.today = moment().format("YYYY-MM-DD");
-    return this.dailyXP[this.today];
+  public async getTotalXP(): Promise<number> {
+    return this.xpState.total;
   }
-
-  public getTotalXP(): number {
-    return this.totalXP;
+  public async getFileXp(fileName: string): Promise<number> {
+    return this.xpState.fileXP[fileName];
   }
-
 
 
 }
